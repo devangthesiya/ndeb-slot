@@ -20,8 +20,13 @@ import config
 from logger import log
 
 
-def create_driver() -> webdriver.Chrome:
-    """Create and return a configured Chrome WebDriver."""
+def create_driver(use_profile: bool = True) -> webdriver.Chrome:
+    """Create and return a configured Chrome WebDriver.
+
+    If use_profile=True and CHROME_PROFILE is set, uses your real Chrome
+    profile so existing cookies/sessions can skip reCAPTCHA.
+    IMPORTANT: Chrome must be fully closed before launching with a profile.
+    """
     options = Options()
     if config.HEADLESS:
         options.add_argument("--headless=new")
@@ -29,6 +34,12 @@ def create_driver() -> webdriver.Chrome:
     options.add_argument("--disable-application-cache")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+
+    # Use real Chrome profile to inherit cookies/sessions (skips reCAPTCHA)
+    if use_profile and config.CHROME_PROFILE:
+        options.add_argument(f"--user-data-dir={config.CHROME_USER_DATA_DIR}")
+        options.add_argument(f"--profile-directory={config.CHROME_PROFILE}")
+        log(f"Using Chrome profile: {config.CHROME_PROFILE}")
 
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
