@@ -7,47 +7,46 @@ and logs when Canadian slots are found.
 import sys
 import time
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from webdriver_manager.chrome import ChromeDriverManager
 
 import config
 from logger import log
 
 
-def create_driver(use_profile: bool = True) -> webdriver.Chrome:
-    """Create and return a configured Chrome WebDriver.
+def create_driver(use_profile: bool = True) -> uc.Chrome:
+    """Create and return an undetected Chrome WebDriver.
 
-    If use_profile=True and CHROME_PROFILE is set, uses your real Chrome
-    profile so existing cookies/sessions can skip reCAPTCHA.
+    Uses undetected-chromedriver to avoid bot detection and reCAPTCHA.
+    If CHROME_PROFILE is set, also loads your real Chrome profile for
+    existing cookies/sessions.
     IMPORTANT: Chrome must be fully closed before launching with a profile.
     """
-    options = Options()
+    options = uc.ChromeOptions()
     if config.HEADLESS:
         options.add_argument("--headless=new")
     options.add_argument("--start-maximized")
     options.add_argument("--disable-application-cache")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
 
-    # Use real Chrome profile to inherit cookies/sessions (skips reCAPTCHA)
+    # Use real Chrome profile to inherit cookies/sessions
     if use_profile and config.CHROME_PROFILE:
-        options.add_argument(f"--user-data-dir={config.CHROME_USER_DATA_DIR}")
         options.add_argument(f"--profile-directory={config.CHROME_PROFILE}")
         log(f"Using Chrome profile: {config.CHROME_PROFILE}")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
+    user_data_dir = None
+    if use_profile and config.CHROME_PROFILE:
+        user_data_dir = config.CHROME_USER_DATA_DIR
+
+    driver = uc.Chrome(options=options, user_data_dir=user_data_dir)
     driver.implicitly_wait(5)
+    log("Browser launched (undetected-chromedriver)")
     return driver
 
 
-def login(driver: webdriver.Chrome):
+def login(driver: uc.Chrome):
     """Navigate to NDEB portal and log in."""
     log("Navigating to NDEB login page...")
     driver.get(config.NDEB_LOGIN_URL)
@@ -74,7 +73,7 @@ def login(driver: webdriver.Chrome):
     log("Login submitted")
 
 
-def click_next_button(driver: webdriver.Chrome, timeout: int = 30):
+def click_next_button(driver: uc.Chrome, timeout: int = 30):
     """Wait for and click the 'Next' button in the registration flow."""
     wait = WebDriverWait(driver, timeout)
     next_btn = wait.until(
@@ -86,7 +85,7 @@ def click_next_button(driver: webdriver.Chrome, timeout: int = 30):
     time.sleep(2)
 
 
-def check_for_slots(driver: webdriver.Chrome) -> list[str]:
+def check_for_slots(driver: uc.Chrome) -> list[str]:
     """
     Navigate the registration flow and check for available slots.
     Returns a list of location names with availability (excluding filtered locations).
@@ -211,7 +210,7 @@ def check_for_slots(driver: webdriver.Chrome) -> list[str]:
     return found_locations
 
 
-def run_check_cycle(driver: webdriver.Chrome):
+def run_check_cycle(driver: uc.Chrome):
     """Run a single check cycle: login → navigate → check slots."""
     try:
         login(driver)
